@@ -1,5 +1,19 @@
 import mongoose from 'mongoose';
 
+const commentSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  text: {
+    type: String,
+    required: [true, 'Comment text is required'],
+    trim: true,
+    maxlength: [500, 'Comment cannot exceed 500 characters']
+  }
+}, { timestamps: true });
+
 const songSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -14,7 +28,7 @@ const songSchema = new mongoose.Schema({
   },
   genre: {
     type: String,
-    enum: ['gospel', 'worship', 'praise', 'contemporary', 'traditional', 'other'],
+    enum: ['gospel', 'worship', 'praise', 'contemporary', 'traditional', 'choral', 'hymn', 'other'],
     default: 'gospel'
   },
   scripture: {
@@ -36,6 +50,12 @@ const songSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  description: {
+    type: String,
+    trim: true,
+    maxlength: [1000, 'Description cannot exceed 1000 characters'],
+    default: ''
+  },
   duration: {
     type: Number,
     default: 0
@@ -48,6 +68,7 @@ const songSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  comments: [commentSchema],
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

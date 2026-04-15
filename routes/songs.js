@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get('/featured', songController.getFeatured);
 router.get('/', optionalAuth, songController.getSongs);
+router.get('/artist/:id', songController.getArtistSongs);
 router.get('/user/:id', songController.getUserSongs);
 router.get('/:id', optionalAuth, songController.getSongById);
 
@@ -31,6 +32,9 @@ router.put('/:id', protect, uploadMedia.fields([
 ]), songController.updateSong);
 router.delete('/:id', protect, songController.deleteSong);
 router.post('/:id/like', protect, songController.toggleLike);
+router.post('/:id/play', songController.incrementPlay);
+router.post('/:id/comments', protect, songController.addComment);
+router.delete('/:id/comments/:commentId', protect, songController.deleteComment);
 router.post('/fix-media', songController.fixMediaUrls);
 
 export default router;

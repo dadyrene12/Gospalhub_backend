@@ -46,7 +46,7 @@ export const uploadMedia = multer({
   fileFilter,
   limits: {
     fileSize: 500 * 1024 * 1024,
-    files: 1
+    files: 2
   }
 });
 

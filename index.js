@@ -48,9 +48,13 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/gospelhub';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://gospal:Dad4343@cluster0.8601trp.mongodb.net/gospelhub?retryWrites=true&w=majority';
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, {
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  family: 4
+})
   .then(() => {
     console.log('✅ Connected to MongoDB');
   })

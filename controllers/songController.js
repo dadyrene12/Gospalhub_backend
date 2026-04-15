@@ -24,7 +24,7 @@ export const getSongs = async (req, res) => {
 
     const [songs, total] = await Promise.all([
       Song.find(filter)
-        .populate('user', 'name avatar')
+        .populate('user', 'name avatar followers')
         .sort(sort)
         .skip(skip)
         .limit(limit),
@@ -49,15 +49,13 @@ export const getSongs = async (req, res) => {
 export const getSongById = async (req, res) => {
   try {
     const song = await Song.findById(req.params.id)
-      .populate('user', 'name avatar bio')
-      .populate('likes', 'name avatar');
+      .populate('user', 'name avatar bio followers')
+      .populate('likes', 'name avatar')
+      .populate('comments.user', 'name avatar');
 
     if (!song) {
       return res.status(404).json({ message: 'Song not found' });
     }
-
-    song.views += 1;
-    await song.save();
 
     res.json({ song });
   } catch (error) {
@@ -66,9 +64,27 @@ export const getSongById = async (req, res) => {
   }
 };
 
+export const incrementPlay = async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.id);
+    
+    if (!song) {
+      return res.status(404).json({ message: 'Song not found' });
+    }
+    
+    song.views += 1;
+    await song.save();
+    
+    res.json({ views: song.views });
+  } catch (error) {
+    console.error('Increment play error:', error);
+    res.status(500).json({ message: 'Failed to increment play count' });
+  }
+};
+
 export const createSong = async (req, res) => {
   try {
-    const { title, type, genre, scripture } = req.body;
+    const { title, type, genre, scripture, description } = req.body;
 
     console.log('Upload - Body:', req.body);
     console.log('Upload - Files:', req.files);
@@ -98,6 +114,7 @@ export const createSong = async (req, res) => {
       type: type || 'audio',
       genre: genre || 'gospel',
       scripture: scripture || '',
+      description: description || '',
       mediaUrl,
       thumbnail,
       user: req.user._id
@@ -213,7 +230,7 @@ export const toggleLike = async (req, res) => {
 export const getUserSongs = async (req, res) => {
   try {
     const songs = await Song.find({ user: req.params.id, status: 'active' })
-      .populate('user', 'name avatar')
+      .populate('user', 'name avatar followers')
       .sort({ createdAt: -1 });
 
     res.json({ songs });
@@ -223,10 +240,24 @@ export const getUserSongs = async (req, res) => {
   }
 };
 
+export const getArtistSongs = async (req, res) => {
+  try {
+    const songs = await Song.find({ user: req.params.id, status: 'active' })
+      .populate('user', 'name avatar followers')
+      .sort({ views: -1 })
+      .limit(5);
+
+    res.json({ songs });
+  } catch (error) {
+    console.error('Get artist songs error:', error);
+    res.status(500).json({ message: 'Failed to fetch artist songs' });
+  }
+};
+
 export const getFeatured = async (req, res) => {
   try {
     const songs = await Song.find({ status: 'active' })
-      .populate('user', 'name avatar')
+      .populate('user', 'name avatar followers')
       .sort({ views: -1, likes: -1 })
       .limit(10);
 
@@ -272,5 +303,78 @@ export const fixMediaUrls = async (req, res) => {
   } catch (error) {
     console.error('Fix media error:', error);
     res.status(500).json({ message: 'Failed to fix media URLs', error: error.message });
+  }
+};
+
+export const addComment = async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ message: 'Comment text is required' });
+    }
+    
+    if (text.length > 500) {
+      return res.status(400).json({ message: 'Comment cannot exceed 500 characters' });
+    }
+    
+    const song = await Song.findById(req.params.id);
+    
+    if (!song) {
+      return res.status(404).json({ message: 'Song not found' });
+    }
+    
+    const comment = {
+      user: req.user._id,
+      text: text.trim()
+    };
+    
+    song.comments.push(comment);
+    await song.save();
+    
+    const populatedSong = await Song.findById(song._id)
+      .populate('comments.user', 'name avatar');
+    
+    const newComment = populatedSong.comments[populatedSong.comments.length - 1];
+    
+    res.status(201).json({
+      message: 'Comment added',
+      comment: newComment,
+      commentsCount: song.comments.length
+    });
+  } catch (error) {
+    console.error('Add comment error:', error);
+    res.status(500).json({ message: 'Failed to add comment' });
+  }
+};
+
+export const deleteComment = async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.id);
+    
+    if (!song) {
+      return res.status(404).json({ message: 'Song not found' });
+    }
+    
+    const comment = song.comments.id(req.params.commentId);
+    
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+    
+    if (comment.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to delete this comment' });
+    }
+    
+    comment.deleteOne();
+    await song.save();
+    
+    res.json({
+      message: 'Comment deleted',
+      commentsCount: song.comments.length
+    });
+  } catch (error) {
+    console.error('Delete comment error:', error);
+    res.status(500).json({ message: 'Failed to delete comment' });
   }
 };

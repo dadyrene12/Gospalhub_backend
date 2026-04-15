@@ -8,6 +8,10 @@ router.post('/register', authController.register);
 
 router.post('/login', authController.login);
 
+router.get('/verify/:token', authController.verifyEmail);
+
+router.post('/resend-verification', authController.resendVerification);
+
 router.get('/me', protect, authController.getMe);
 
 router.put('/profile', protect, authController.updateProfile);
