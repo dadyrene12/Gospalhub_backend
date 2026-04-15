@@ -42,7 +42,9 @@ export const register = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        isVerified: true
+        isVerified: true,
+        avatar: user.avatar || '',
+        bio: user.bio || ''
       }
     });
   } catch (error) {

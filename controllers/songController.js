@@ -3,7 +3,7 @@ import Song from '../models/Song.js';
 export const getSongs = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const skip = (page - 1) * limit;
 
     const filter = { status: 'active' };
@@ -14,8 +14,11 @@ export const getSongs = async (req, res) => {
     if (req.query.genre) {
       filter.genre = req.query.genre;
     }
+    if (req.query.user) {
+      filter.user = req.query.user;
+    }
     if (req.query.search) {
-      filter.$text = { $search: req.query.search };
+      filter.title = { $regex: req.query.search, $options: 'i' };
     }
 
     const sort = req.query.sort === 'popular' 
@@ -27,7 +30,8 @@ export const getSongs = async (req, res) => {
         .populate('user', 'name avatar followers')
         .sort(sort)
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       Song.countDocuments(filter)
     ]);
 
@@ -42,7 +46,7 @@ export const getSongs = async (req, res) => {
     });
   } catch (error) {
     console.error('Get songs error:', error);
-    res.status(500).json({ message: 'Failed to fetch songs' });
+    res.status(500).json({ message: 'Failed to fetch songs', error: error.message });
   }
 };
 
