@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Token from '../models/Token.js';
-import { sendVerificationEmail, generateVerificationToken } from '../services/emailService.js';
+import { generateVerificationToken } from '../services/emailService.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'gospelhub_jwt_secret_key_2024', {
@@ -30,32 +30,19 @@ export const register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password,
-      isVerified: false
+      isVerified: true
     });
 
-    const verificationToken = generateVerificationToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await Token.create({
-      userId: user._id,
-      token: verificationToken,
-      type: 'verification',
-      expiresAt
-    });
-
-    user.verificationToken = verificationToken;
-    user.verificationTokenExpires = expiresAt;
-    await user.save();
-
-    await sendVerificationEmail(user.email, user, verificationToken);
+    const token = generateToken(user._id);
 
     res.status(201).json({
-      message: 'Registration successful! Please check your email to verify your account.',
-      needsVerification: true,
+      message: 'Registration successful!',
+      token,
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        isVerified: true
       }
     });
   } catch (error) {
@@ -80,29 +67,6 @@ export const login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
-    }
-
-    if (!user.isVerified) {
-      const verificationToken = generateVerificationToken();
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-      await Token.create({
-        userId: user._id,
-        token: verificationToken,
-        type: 'verification',
-        expiresAt
-      });
-
-      user.verificationToken = verificationToken;
-      user.verificationTokenExpires = expiresAt;
-      await user.save();
-
-      await sendVerificationEmail(user.email, user, verificationToken);
-
-      return res.status(403).json({ 
-        message: 'Please verify your email address. A new verification link has been sent.',
-        needsVerification: true
-      });
     }
 
     const token = generateToken(user._id);
@@ -150,8 +114,6 @@ export const verifyEmail = async (req, res) => {
     }
 
     user.isVerified = true;
-    user.verificationToken = undefined;
-    user.verificationTokenExpires = undefined;
     await user.save();
 
     await Token.deleteOne({ _id: tokenDoc._id });
@@ -191,25 +153,7 @@ export const resendVerification = async (req, res) => {
       return res.status(400).json({ message: 'Email already verified' });
     }
 
-    await Token.deleteMany({ userId: user._id, type: 'verification' });
-
-    const verificationToken = generateVerificationToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await Token.create({
-      userId: user._id,
-      token: verificationToken,
-      type: 'verification',
-      expiresAt
-    });
-
-    user.verificationToken = verificationToken;
-    user.verificationTokenExpires = expiresAt;
-    await user.save();
-
-    await sendVerificationEmail(user.email, user, verificationToken);
-
-    res.json({ message: 'Verification email sent successfully' });
+    res.json({ message: 'Verification email will be sent shortly' });
   } catch (error) {
     console.error('Resend verification error:', error);
     res.status(500).json({ message: 'Failed to send verification email' });

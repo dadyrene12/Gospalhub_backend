@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-const BASE_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+const BASE_URL = process.env.CLIENT_URL || 'https://gospelhub.onrender.com';
 
 export const generateVerificationToken = () => {
   return crypto.randomBytes(32).toString('hex');
