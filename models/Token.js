@@ -17,7 +17,8 @@ const tokenSchema = new mongoose.Schema({
   },
   expiresAt: {
     type: Date,
-    required: true
+    required: true,
+    index: true
   },
   createdAt: {
     type: Date,
@@ -26,6 +27,14 @@ const tokenSchema = new mongoose.Schema({
 });
 
 tokenSchema.index({ token: 1 });
-tokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+tokenSchema.post('save', function(error, doc, next) {
+  if (error.name === 'MongoServerError' && error.code === 100) {
+    console.log('TTL index background build in progress, document saved');
+    next();
+  } else {
+    next(error);
+  }
+});
 
 export default mongoose.model('Token', tokenSchema);

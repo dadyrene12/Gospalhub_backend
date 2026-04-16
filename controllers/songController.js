@@ -31,22 +31,32 @@ export const getSongs = async (req, res) => {
         .sort(sort)
         .skip(skip)
         .limit(limit)
-        .lean(),
-      Song.countDocuments(filter)
+        .lean()
+        .catch(err => {
+          console.error('Query error:', err);
+          return [];
+        }),
+      Song.countDocuments(filter).catch(err => {
+        console.error('Count error:', err);
+        return 0;
+      })
     ]);
 
     res.json({
-      songs,
+      songs: songs || [],
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: total || 0,
+        pages: Math.ceil((total || 0) / limit)
       }
     });
   } catch (error) {
     console.error('Get songs error:', error);
-    res.status(500).json({ message: 'Failed to fetch songs', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to fetch songs', 
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 };
 

@@ -47,7 +47,29 @@ app.get('/health', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
+  console.error('Error:', err);
+  
+  if (err.name === 'MongoNetworkError' || err.name === 'MongooseServerSelectionError') {
+    return res.status(503).json({ 
+      message: 'Database connection error. Please try again later.',
+      error: 'Database unavailable'
+    });
+  }
+  
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ 
+      message: 'Validation error',
+      error: err.message
+    });
+  }
+  
+  if (err.name === 'CastError') {
+    return res.status(400).json({ 
+      message: 'Invalid ID format',
+      error: 'Invalid resource ID'
+    });
+  }
+  
   res.status(500).json({ 
     message: 'Server error',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
@@ -61,7 +83,13 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://gospal:Dad4343@cluster0.8601trp.mongodb.net/gospelhub?retryWrites=true&w=majority&ssl=true&tlsAllowInvalidCertificates=true';
 
+let isConnected = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+
 const connectDB = async () => {
+  if (isConnected && mongoose.connection.readyState === 1) return;
+  
   try {
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 30000,
@@ -70,10 +98,26 @@ const connectDB = async () => {
       maxPoolSize: 10
     });
     
-    await Song.createIndexes();
+    isConnected = true;
+    reconnectAttempts = 0;
+    
+    try {
+      await Song.createIndexes();
+      console.log('✅ Song indexes created');
+    } catch (indexError) {
+      console.error('⚠️ Index creation warning:', indexError.message);
+    }
+    
     console.log('✅ Connected to MongoDB');
   } catch (err) {
     console.error('⚠️ MongoDB connection error:', err.message);
+    isConnected = false;
+    
+    reconnectAttempts++;
+    if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+      console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+      setTimeout(connectDB, 5000);
+    }
   }
 };
 
@@ -81,10 +125,18 @@ connectDB();
 
 mongoose.connection.on('error', (err) => {
   console.error('MongoDB error:', err.message);
+  isConnected = false;
 });
 
 mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected');
+  isConnected = false;
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('MongoDB reconnected');
+  isConnected = true;
+  reconnectAttempts = 0;
 });
 
 app.listen(PORT, () => {
