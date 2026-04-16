@@ -164,7 +164,10 @@ export const resendVerification = async (req, res) => {
     }
 
     if (user.isVerified) {
-      return res.status(400).json({ message: 'Email already verified' });
+      return res.json({ 
+        message: 'Your email is already verified. You can login directly.',
+        alreadyVerified: true 
+      });
     }
 
     res.json({ message: 'Verification email will be sent shortly' });
